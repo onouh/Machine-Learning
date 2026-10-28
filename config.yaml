@@ -1,0 +1,11 @@
+random_seed: 42
+
+# Place the City Hotel source dataset here; local data is excluded from Git by default.
+data:
+  path: data/raw/H2.csv
+
+paths:
+  processed_data: data/processed
+  artifacts: artifacts
+  figures: outputs/figures
+  results: outputs/results

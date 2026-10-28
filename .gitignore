@@ -1,0 +1,44 @@
+# Python runtime/build files
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+
+# Local environments and secrets
+.venv/
+venv/
+env/
+.env
+.env.*
+!.env.example
+
+# Editors and notebooks
+.DS_Store
+.ipynb_checkpoints/
+.vscode/
+.idea/
+
+# Local source data: keep documentation/markers, never commit the raw CSV by default.
+data/raw/*
+!data/raw/README.md
+!data/raw/.gitkeep
+
+data/processed/*
+!data/processed/.gitkeep
+
+# Generated models and fitted preprocessing pipelines are ignored by default.
+# To track a specifically selected artifact, use: git add -f artifacts/<file>
+artifacts/*
+!artifacts/README.md
+!artifacts/.gitkeep
+
+# Generated figures and metrics; commit selected report deliverables deliberately.
+outputs/figures/*
+!outputs/figures/.gitkeep
+outputs/results/*
+!outputs/results/.gitkeep
