@@ -1,6 +1,6 @@
 # City Hotel Booking Machine Learning
 
-A reproducible Python project for the City Hotel H2 booking dataset. The planned system includes ADR regression, cancellation classification, booking-level clustering, PCA/LDA comparisons, hyperparameter tuning, saved inference pipelines, a CLI, and a Streamlit interface. The current repository is a scaffold: task models and training workflows are not implemented yet. Track progress in [TASK.md](TASK.md) and durable decisions in [MEMORY.md](MEMORY.md).
+A reproducible Python project for the City Hotel H2 booking dataset. The planned system includes ADR regression, cancellation classification, booking-level clustering, PCA/LDA comparisons, hyperparameter tuning, saved inference pipelines, a CLI, and a Streamlit interface. The current repository is a scaffold: task models and training workflows are not implemented yet. Track progress in [MEMORY.md](MEMORY.md) and durable decisions in [TASK.md](TASK.md).
 
 ## Requirements
 
