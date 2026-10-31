@@ -28,7 +28,6 @@ data/raw/*
 !data/raw/README.md
 !data/raw/.gitkeep
 
-data/processed/*
 !data/processed/.gitkeep
 
 # Generated models and fitted preprocessing pipelines are ignored by default.
