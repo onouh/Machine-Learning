@@ -103,6 +103,7 @@ def audit(df: pd.DataFrame) -> None:
     n_before = len(df)
     df = df.drop_duplicates(keep="first").reset_index(drop=True)
     print(f"removed {n_before - len(df)} duplicates, {len(df)} rows left")
+    df.to_csv("data/processed/H2_noduplicates.csv", index=False)
 
 if __name__ == "__main__":
     audit(load_h2(sys.argv[1] if len(sys.argv) > 1 else "data/H2.csv"))
