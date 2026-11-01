@@ -83,6 +83,7 @@ def audit(df: pd.DataFrame) -> None:
     print(df[dup_extra]["Agent"].notna().mean())     # share among the duplicates
 
 
+    df.to_csv("data/processed/H2_noduplicates.csv", index=False)
 
 if __name__ == "__main__":
     audit(load_h2(sys.argv[1] if len(sys.argv) > 1 else "data/H2.csv"))
