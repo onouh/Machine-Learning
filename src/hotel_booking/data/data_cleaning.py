@@ -218,6 +218,14 @@ def clean_regression_data(df: pd.DataFrame) -> pd.DataFrame:
 
     # Keep the first copy of each exact duplicate row.
     df = df.drop_duplicates(keep="first").reset_index(drop=True)
+    
+    # filling blank Agents
+    df['Agent'] = df['Agent'].fillna(0).astype(int)
+    #filling blank countries
+    df['Country'] = df['Country'].fillna('Unknown')
+    #changing date into DATETIME
+    df['date'] = pd.to_datetime(df['date'])
+
 
     return df
 
