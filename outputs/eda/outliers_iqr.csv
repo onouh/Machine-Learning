@@ -1,0 +1,16 @@
+column,lower fence,upper fence,n outliers,% outliers,max
+LeadTime,-187.0,373.0,2576,3.25,629.0
+ArrivalDateWeekNumber,-14.5,69.5,0,0.0,53.0
+ArrivalDateDayOfMonth,-14.5,45.5,0,0.0,31.0
+StaysInWeekendNights,-3.0,5.0,82,0.1,16.0
+StaysInWeekNights,-2.0,6.0,719,0.91,41.0
+Adults,2.0,2.0,21075,26.57,4.0
+Children,0.0,0.0,5106,6.44,3.0
+Babies,0.0,0.0,369,0.47,10.0
+PreviousCancellations,0.0,0.0,5389,6.79,21.0
+PreviousBookingsNotCanceled,0.0,0.0,1588,2.0,72.0
+BookingChanges,0.0,0.0,10268,12.94,21.0
+DaysInWaitingList,0.0,0.0,3443,4.34,391.0
+ADR,9.0,196.2,3387,4.27,5400.0
+RequiredCarParkingSpaces,0.0,0.0,1926,2.43,3.0
+TotalOfSpecialRequests,-1.5,2.5,1811,2.28,5.0

@@ -82,27 +82,7 @@ def audit(df: pd.DataFrame) -> None:
     print(df["Agent"].notna().mean())                # share of all rows with an agent
     print(df[dup_extra]["Agent"].notna().mean())     # share among the duplicates
 
-    # How big are the duplicate groups?
-    counts = df.value_counts(dropna=False)
-    print(counts[counts > 1].describe())
 
-    # Which segments do they come from?
-    print(df[dup_extra]["MarketSegment"].value_counts(normalize=True).head())
-    # Is Groups over-represented among duplicates? Compare with the whole dataset
-    print(df["MarketSegment"].value_counts(normalize=True))
-
-    # What are the biggest duplicate groups?
-    counts = df.value_counts(dropna=False)
-    print(counts[counts > 1].sort_values(ascending=False).head(10))
-
-    # How many duplicate groups have more than 10 copies?
-    print((counts > 10).sum())
-
-    # Do the duplicates differ in cancellation rate?
-    print(df.duplicated().groupby(df["IsCanceled"]).mean())
-    n_before = len(df)
-    df = df.drop_duplicates(keep="first").reset_index(drop=True)
-    print(f"removed {n_before - len(df)} duplicates, {len(df)} rows left")
 
 if __name__ == "__main__":
     audit(load_h2(sys.argv[1] if len(sys.argv) > 1 else "data/H2.csv"))
