@@ -24,7 +24,7 @@ env/
 .idea/
 
 # Local source data: keep documentation/markers, never commit the raw CSV by default.
-data/raw/*
+#data/raw/*
 !data/raw/README.md
 !data/raw/.gitkeep
 
