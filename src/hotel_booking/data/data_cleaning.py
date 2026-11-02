@@ -121,7 +121,11 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
     missing_children = int(df["Children"].isna().sum())
     df["Children"] = df["Children"].fillna(0)
     print(f"Children missing values changed to 0: {missing_children}")
-
+        
+    # CN and CHN both mean China; standardise to the 3-letter ISO code
+    cn_mask = df["Country"].eq("CN").fillna(False)
+    print(f"Country 'CN' changed to 'CHN': {int(cn_mask.sum())}")
+    df.loc[cn_mask, "Country"] = "CHN"
     month_to_number = {
         calendar.month_name[month].lower(): month
         for month in range(1, 13)
