@@ -1,12 +1,9 @@
 import argparse
 import difflib
-import re
 from pathlib import Path
-
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-
 from load import load_dataset
 
 # Continuous / count columns worth looking at for skew and outliers.

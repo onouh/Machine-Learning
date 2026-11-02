@@ -115,7 +115,8 @@ def load_h2(path: Path) -> pd.DataFrame:
 
 
 def clean_data(df: pd.DataFrame) -> pd.DataFrame:
-    """Clean the data by handling missing children, creating dates, and removing rows and duplicates."""
+    """Clean the data by handling missing children, 
+    creating dates, and removing rows and duplicates."""
     df = df.copy()
 
     missing_children = int(df["Children"].isna().sum())
