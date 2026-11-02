@@ -13,11 +13,11 @@ A reproducible Python project for the City Hotel H2 booking dataset. The planned
 Create and activate a virtual environment, then install the project and development checks:
 
 ```bash
-uv venv --python 3.11 .venv
+uv venv --python 3.15 .venv
 source .venv/bin/activate  # Windows PowerShell: .venv\\Scripts\\Activate.ps1
 uv pip install --python .venv/bin/python -r requirements.txt
 
-# Alternatively, with an activated Python 3.10+ environment:
+# Alternatively, with an activated Python 3.15+ environment:
 # python -m pip install -r requirements.txt
 ```
 

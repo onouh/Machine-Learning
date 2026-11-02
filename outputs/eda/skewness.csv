@@ -1,0 +1,16 @@
+,skew
+Adults,-0.431
+ArrivalDateWeekNumber,-0.01
+ArrivalDateDayOfMonth,-0.007
+StaysInWeekendNights,1.134
+LeadTime,1.39
+TotalOfSpecialRequests,1.404
+StaysInWeekNights,2.956
+Children,4.337
+RequiredCarParkingSpaces,6.302
+BookingChanges,7.246
+DaysInWaitingList,10.305
+PreviousCancellations,16.585
+PreviousBookingsNotCanceled,23.117
+ADR,23.162
+Babies,44.775
