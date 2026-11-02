@@ -4,7 +4,6 @@ from pathlib import Path
 
 import pandas as pd
 
-
 REPO_ROOT = Path(__file__).resolve().parents[3]
 EXPECTED_ROWS = 79_330
 EXPECTED_COLS = 31
