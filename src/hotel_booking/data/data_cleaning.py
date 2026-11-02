@@ -199,6 +199,13 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
     print("  Extra duplicate copies:", extra_copies)
     print("  Rows in duplicate groups:", rows_in_duplicate_groups)
 
+    #change blank agents to id 0
+    df['Agent'] = df['Agent'].fillna(0).astype(int)
+    #change blank countries to unknown
+    df['Country'] = df['Country'].fillna('Unknown')
+    #change date into datetimem
+    df['date'] = pd.to_datetime(df['date'])
+
     return df.drop_duplicates(keep="first").reset_index(drop=True)
 
 
@@ -237,8 +244,12 @@ def main() -> None:
 
     cleaned = clean_data(df)
 
-    if not cleaned["date"].str.fullmatch(r"\d{4}-\d{2}-\d{2}").all():
-        raise ValueError("The date column is not consistently YYYY-MM-DD.")
+    # Validate date column
+    if not pd.api.types.is_datetime64_any_dtype(cleaned["date"]):
+        raise TypeError("Date column is not datetime.")
+
+    if cleaned["date"].isna().any():
+        raise ValueError("Date column contains missing or invalid dates.")
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     cleaned.to_csv(output_path, index=False, date_format="%Y-%m-%d")
