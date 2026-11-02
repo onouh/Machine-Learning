@@ -29,6 +29,7 @@ data/raw/*
 !data/raw/.gitkeep
 
 !data/processed/.gitkeep
+data/processed/*
 
 # Generated models and fitted preprocessing pipelines are ignored by default.
 # To track a specifically selected artifact, use: git add -f artifacts/<file>
