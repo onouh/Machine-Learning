@@ -1,0 +1,139 @@
+{
+  "shape": {
+    "rows": 79330,
+    "columns": 31
+  },
+  "leakage_reservation_status_x_is_canceled": {
+    "status=Canceled|isCanceled=1": 32186,
+    "status=Check-Out|isCanceled=0": 46228,
+    "status=No-Show|isCanceled=1": 916
+  },
+  "leakage_reservation_status_agrees_with_is_canceled": true,
+  "arrival_min": "2015-07-01",
+  "arrival_max": "2017-08-31",
+  "reservation_status_date_min": "2014-10-17",
+  "reservation_status_date_max": "2017-09-07",
+  "reservation_status_date_before_arrival_any": true,
+  "reservation_status_date_before_arrival_count": 31631,
+  "booking_changesgt0": 10268,
+  "booking_changes_values": {
+    "0": 69062,
+    "1": 7232,
+    "2": 2244,
+    "3": 467,
+    "4": 194,
+    "5": 46,
+    "6": 31,
+    "7": 19,
+    "8": 9,
+    "9": 4,
+    "10": 3,
+    "11": 2,
+    "12": 1,
+    "13": 3,
+    "14": 5,
+    "15": 3,
+    "16": 1,
+    "17": 1,
+    "18": 1,
+    "20": 1,
+    "21": 1
+  },
+  "days_in_waiting_list_gt0": 3443,
+  "assigned_differs_from_reserved": 7192,
+  "assigned_room_type_by_room_type": [
+    "A",
+    "B",
+    "C",
+    "D",
+    "E",
+    "F",
+    "G",
+    "K",
+    "P"
+  ],
+  "nulls_per_column": {
+    "Children": 4,
+    "Country": 24,
+    "Agent": 8131,
+    "Company": 75641
+  },
+  "missing_literal_tokens_pre_normalization": {
+    "Country": {
+      "NULL": 24
+    },
+    "Agent": {
+      "NULL": 8131
+    },
+    "Company": {
+      "NULL": 75641
+    }
+  },
+  "literal_tokens_surviving_normalization": {},
+  "adr_negatives_count": 0,
+  "adr_eq_5400": 1,
+  "adr_max_non_5400": 510.0,
+  "adr_quantiles": {
+    "0.01": 0.0,
+    "0.25": 79.2,
+    "0.5": 99.9,
+    "0.75": 126.0,
+    "0.99": 228.0
+  },
+  "adr_mean": 105.30446539770578,
+  "lead_time_max": 629,
+  "stays_zero_nights": 331,
+  "adults_eq_0": 390,
+  "babies_9_or_10": 2,
+  "total_guests_eq_0": 167,
+  "babies_values": {
+    "0": 78961,
+    "1": 361,
+    "2": 6,
+    "9": 1,
+    "10": 1
+  },
+  "adr_zero_count": 1208,
+  "adr_zero_share_of_rows": 0.015227530568511283,
+  "adr_zero_status_x_market_segment": {
+    "status=Canceled|segment=Complementary": 54,
+    "status=Canceled|segment=Corporate": 3,
+    "status=Canceled|segment=Direct": 8,
+    "status=Canceled|segment=Groups": 14,
+    "status=Canceled|segment=Offline TA/TO": 27,
+    "status=Canceled|segment=Online TA": 8,
+    "status=Check-Out|segment=Aviation": 5,
+    "status=Check-Out|segment=Complementary": 447,
+    "status=Check-Out|segment=Corporate": 27,
+    "status=Check-Out|segment=Direct": 102,
+    "status=Check-Out|segment=Groups": 130,
+    "status=Check-Out|segment=Offline TA/TO": 209,
+    "status=Check-Out|segment=Online TA": 159,
+    "status=No-Show|segment=Aviation": 1,
+    "status=No-Show|segment=Complementary": 7,
+    "status=No-Show|segment=Direct": 1,
+    "status=No-Show|segment=Online TA": 6
+  },
+  "adr_zero_by_deposit": {
+    "No Deposit": 1208
+  },
+  "adr_zero_by_customer_type": {
+    "Transient": 900,
+    "Transient-Party": 288,
+    "Contract": 12,
+    "Group": 8
+  },
+  "adr_zero_not_complementary_count": 700,
+  "adr_zero_not_complementary_deposit": {
+    "No Deposit": 700
+  },
+  "Company_null": 75641,
+  "Company_nonnull": 3689,
+  "Company_cardinality": 207,
+  "Agent_null": 8131,
+  "Agent_nonnull": 71199,
+  "Agent_cardinality": 223,
+  "duplicate_rows_excluding_first": 25902,
+  "rows_in_duplicate_groups": 31748,
+  "booking_changes_gt0_gt0_mean_adr": 107.99649396182313
+}

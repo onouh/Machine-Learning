@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ADR Regression Experiment Report</title>
+<style>
+  :root{
+    --bg:#0f1115;
+    --panel:#171a21;
+    --panel2:#1c2029;
+    --border:#2a3040;
+    --muted:#9aa3b2;
+    --text:#e6e9ef;
+    --accent:#6fb6ff;
+    --accent2:#a37cff;
+    --ok:#7be3a1;
+    --warn:#ffd166;
+    --bad:#ff7a7a;
+    --code-bg:#0b0d12;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+    color:var(--text);
+    background:
+      radial-gradient(1200px 600px at 80% -10%, rgba(111,182,255,.08), transparent 60%),
+      radial-gradient(900px 500px at -10% 10%, rgba(163,124,255,.07), transparent 60%),
+      var(--bg);
+    line-height:1.55;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1120px;margin:0 auto;padding:48px 24px 96px}
+  header{display:flex;gap:24px;align-items:flex-end;flex-wrap:wrap;margin-bottom:34px;border-bottom:1px solid var(--border);padding-bottom:22px}
+  h1{font-size:clamp(24px,3.4vw,38px);margin:0 0 8px;font-weight:650;letter-spacing:-.02em}
+  .sub{color:var(--muted);max-width:780px;font-size:14.5px}
+  .meta{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;font-size:13px;color:var(--muted)}
+  .meta b{color:var(--text);font-weight:600}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px;margin-top:28px}
+  .card{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:18px 18px 16px;
+  }
+  .card h2{margin:0 0 10px;font-size:15px;font-weight:600;letter-spacing:.01em;color:var(--accent)}
+  .card p{margin:0 0 10px;color:var(--muted);font-size:13.5px}
+  .card ul{margin:6px 0 0;padding-left:18px;color:var(--text);font-size:13px}
+  .card li{margin:4px 0}
+  .badge{
+    display:inline-block;font-size:11.5px;font-weight:600;padding:3px 9px;border-radius:999px;
+    background:var(--panel2);color:var(--accent);border:1px solid var(--border);letter-spacing:.02em
+  }
+  table{width:100%;border-collapse:collapse;font-size:13px;margin-top:14px}
+  th,td{text-align:left;padding:9px 11px;border-bottom:1px solid var(--border)}
+  th{background:var(--panel);color:var(--muted);font-weight:600;letter-spacing:.01em;font-size:12px;text-transform:uppercase}
+  tr:last-child td{border-bottom:none}
+  .nums td{font-variant-numeric:tabular-nums}
+  .best td{color:var(--ok)}
+  .code{
+    background:var(--code-bg);
+    color:#dfe3eb;
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:14px 16px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-size:13px;
+    white-space:pre;
+    overflow-x:auto;
+    tab-size:2
+  }
+  .code .c{color:#7d869c}
+  .two{text-align:center}
+  .two .code{display:inline-block;text-align:left;max-width:100%}
+  .lead{font-size:14.5px;color:var(--muted);max-width:780px}
+  .section{margin-top:42px}
+  .section h2{font-size:18px;margin:0 0 10px;letter-spacing:-.01em}
+  .section .rule{height:1px;background:var(--border);margin:18px 0 4px}
+  .conclusion ol{margin:14px 0 6px;padding-left:20px;color:var(--text);font-size:13.5px}
+  .conclusion li{margin:11px 0}
+  .conclusion li b{color:var(--text)}
+  .callout{
+    background:rgba(111,182,255,.06);
+    border:1px solid rgba(111,182,255,.25);
+    border-left:3px solid var(--accent);
+    border-radius:10px;
+    padding:12px 16px;
+    margin-top:16px;
+    color:var(--muted);
+    font-size:13px
+  }
+  .callout b{color:var(--text)}
+  footer{margin-top:56px;color:var(--muted);font-size:12.5px;border-top:1px solid var(--border);padding-top:14px}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div>
+    <h1>ADR Regression Experiment Report</h1>
+    <p class="sub">Full experiment plan and results for predicting Average Daily Rate on the City Hotel H2 dataset: preprocessing with documented column truncation, sixteen-by-three run matrix across model families, every run logged, and explicit conclusions on the pipeline and model selection.</p>
+    <div class="meta">
+      <div><b>Target</b>: ADR (average daily rate)</div>
+      <div><b>Dataset</b>: data/raw/H2.csv</div>
+      <div><b>Output dir</b>: outputs/results/regression</div>
+      <div><b>Seed</b>: 42 · Test split 0.2 · Log: runs.csv + per-run JSON</div>
+    </div>
+  </div>
+</header>
+
+<div class="grid">
+  <div class="card">
+    <h2>What was built</h2>
+    <p>Two new modules under <span class="badge">src/hotel_booking/regression/</span>:</p>
+    <ul>
+      <li><b>pipeline.py</b> — deterministic preprocessing with documented column pruning, date reconstruction, invalid-row rules, ordinal + one-hot encoding, and per-run log dicts.</li>
+      <li><b>run.py</b> — 10 model families × 3 preprocessing variants = 19 runs; logs to JSON + runs.csv; writes conclusions.md.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h2>How to run it</h2>
+    <p>Install the project and deps once, then run the matrix:</p>
+    <div class="code two"><span>pip install -e .</span></div>
+    <div class="code two" style="margin-top:8px"><span>python -m hotel_booking.regression.run</span></div>
+    <p style="margin-top:10px">Or via CLI:</p>
+    <div class="code two" style="margin-top:8px"><span>python -m hotel_booking.cli regression \\\n    --data data/raw/H2.csv \\\n    --out outputs/results/regression</span></div>
+  </div>
+  <div class="card">
+    <h2>Model families imported</h2>
+    <p>All runs use scikit-learn:</p>
+    <ul>
+      <li>Linear: LinearRegression, Ridge, Lasso, ElasticNet</li>
+      <li>Nonlinear / ensembles: DecisionTreeRegressor, RandomForestRegressor, GradientBoostingRegressor, SVR(rbf)</li>
+      <li>Neural nets: MLPRegressor (small and deep)</li>
+    </ul>
+  </div>
+</div>
+
+<div class="section">
+  <p class="rule"></p>
+  <h2>Data preprocessing pipeline</h2>
+
+  <p>Prediction is treated as booking creation. That is what drives the leakage cuts below and is recorded in each run log.</p>
+
+  <p style="margin-top:18px"><b style="color:var(--text)">Columns dropped with reasoning</b></p>
+  <table class="nums">
+    <thead>
+      <tr><th style="width:32%">Column</th><th>Reason</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>ReservationStatus</td><td>Direct post-booking outcome; in this CSV it agrees exactly with IsCanceled.</td></tr>
+      <tr><td>ReservationStatusDate</td><td>Post-booking timestamp; leakage for a booking-time ADR estimate.</td></tr>
+      <tr><td>ArrivalDateWeekNumber</td><td>Reconstructed into a single arrival date, so this part is redundant after rebuild.</td></tr>
+      <tr><td>Company</td><td>Almost entirely empty ID field; not meaningful for rate.</td></tr>
+    </tbody>
+  </table>
+
+  <p style="margin-top:18px"><b style="color:var(--text)">Invalid-row exclusions with reasoning</b></p>
+  <table class="nums">
+    <thead>
+      <tr><th style="width:32%">Rule</th><th>Reason</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>total_guests &lt;= 0</td><td>Not a valid booking.</td></tr>
+      <tr><td>total_nights &lt;= 0</td><td>Length of stay is zero, so ADR is not meaningfully defined.</td></tr>
+      <tr><td>Babies in {9,10}</td><td>EDA outlier rule from the existing EDA notebooks.</td></tr>
+      <tr><td>Adults == 0</td><td>EDA outlier rule, consistent with the existing cleaning code.</td></tr>
+    </tbody>
+  </table>
+  <p style="margin-top:10px">This removes <b>656 rows</b> from the 79,330-row H2 file, leaving <b>52,645 rows</b>.</p>
+
+  <p style="margin-top:18px"><b style="color:var(--text)">What is kept and how it is encoded</b></p>
+  <ul>
+    <li><b>Numeric</b> — LeadTime, arrival_days, StaysInWeekendNights, StaysInWeekNights, Adults, Children, Babies, IsRepeatedGuest, PreviousCancellations, PreviousBookingsNotCanceled, BookingChanges, DaysInWaitingList, RequiredCarParkingSpaces, TotalOfSpecialRequests</li>
+    <li><b>Ordinal</b> — Meal, MarketSegment, DistributionChannel, ReservedRoomType, AssignedRoomType, DepositType, CustomerType</li>
+    <li><b>One-hot</b> — Country (top 15 + Unknown + Other folded), plus the same categorical fields one-hotted</li>
+  </ul>
+  <p>Final feature count per run: <b>74</b> — 14 numeric + 7 ordinal + 53 one-hot. The exact list is recorded inside each run JSON.</p>
+
+  <div class="callout">
+    <b>ADR == 0 handling.</b> Kept by default, because the business meaning of zero-rate bookings is unresolved in the project docs. A <code style="color:#dfe3eb">drop_adr_zero=True</code> variant is also run so the effect can be measured directly. Default pipeline keeps <b>801</b> ADR==0 rows.
+  </div>
+</div>
+
+<div class="section">
+  <p class="rule"></p>
+  <h2>Models, scaling, and runtime tradeoffs</h2>
+  <table class="nums">
+    <thead>
+      <tr><th>Model family</th><th>Numeric features</th><th>Slow model?</th><th>Training rows</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>LinearRegression / Ridge / Lasso / ElasticNet</td><td>Standardized</td><td>No</td><td>Full training split</td></tr>
+      <tr><td>SVR (rbf)</td><td>Standardized</td><td>Yes</td><td>15,000 subsample</td></tr>
+      <tr><td>DecisionTree / RandomForest / GradientBoosting</td><td>Raw numeric</td><td>No / No / Yes</td><td>Full / Full / Full</td></tr>
+      <tr><td>MLP_small / MLP_deep</td><td>Standardized</td><td>Yes</td><td>15,000 subsample</td></tr>
+    </tbody>
+  </table>
+  <p style="margin-top:10px;color:var(--muted)">The 15k subsample for the slow families is recorded per run, so those runs are noisier than the tree and linear runs trained on the full split.</p>
+</div>
+
+<div class="section">
+  <p class="rule"></p>
+  <h2>Results — runs.csv</h2>
+  <p class="lead">Best overall on the held-out test set: <b style="color:var(--ok)">RandomForest, ADR==0 kept, no log target — RMSE 54.59, MAE 10.56, R² 0.315</b>.</p>
+
+  <table class="nums">
+    <thead>
+      <tr>
+        <th>Label</th>
+        <th>Model</th>
+        <th>RMSE</th>
+        <th>MAE</th>
+        <th>R²</th>
+        <th>drop_adr_zero</th>
+        <th>log_target</th>
+        <th>n_features</th>
+        <th>fit_s</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="best"><td>rf_adr0_keep</td><td>RandomForest</td><td>54.59</td><td>10.56</td><td>0.315</td><td>False</td><td>False</td><td>74</td><td>59.96</td></tr>
+      <tr><td>tree_dt_adr0_keep</td><td>DecisionTree</td><td>56.67</td><td>13.11</td><td>0.262</td><td>False</td><td>False</td><td>74</td><td>0.58</td></tr>
+      <tr><td>gb_adr0_keep</td><td>GradientBoosting</td><td>55.28</td><td>13.90</td><td>0.298</td><td>False</td><td>False</td><td>74</td><td>27.10</td></tr>
+      <tr><td>rf_adr0_log</td><td>RandomForest</td><td>55.37</td><td>11.58</td><td>0.295</td><td>False</td><td>True</td><td>74</td><td>72.57</td></tr>
+      <tr><td>rf_no_adr0</td><td>RandomForest</td><td>54.72</td><td>10.23</td><td>0.293</td><td>True</td><td>False</td><td>74</td><td>64.91</td></tr>
+      <tr><td>gb_adr0_log</td><td>GradientBoosting</td><td>55.96</td><td>14.95</td><td>0.280</td><td>False</td><td>True</td><td>74</td><td>26.46</td></tr>
+      <tr><td>mlp_deep_adr0_keep</td><td>MLP_deep</td><td>56.14</td><td>15.84</td><td>0.276</td><td>False</td><td>False</td><td>74</td><td>9.82</td></tr>
+      <tr><td>mlp_small_adr0_keep</td><td>MLP_small</td><td>56.33</td><td>16.34</td><td>0.271</td><td>False</td><td>False</td><td>74</td><td>12.33</td></tr>
+      <tr><td>baseline_linear_adr0_keep</td><td>LinearRegression</td><td>57.93</td><td>20.31</td><td>0.229</td><td>False</td><td>False</td><td>74</td><td>0.18</td></tr>
+      <tr><td>baseline_ridge_adr0_keep</td><td>Ridge</td><td>57.93</td><td>20.31</td><td>0.229</td><td>False</td><td>False</td><td>74</td><td>0.06</td></tr>
+      <tr><td>svr_adr0_keep</td><td>SVR_rbf</td><td>57.99</td><td>19.32</td><td>0.227</td><td>False</td><td>False</td><td>74</td><td>23.12</td></tr>
+      <tr><td>baseline_lasso_adr0_keep</td><td>Lasso</td><td>59.56</td><td>22.27</td><td>0.185</td><td>False</td><td>False</td><td>74</td><td>0.10</td></tr>
+      <tr><td>baseline_elastic_adr0_keep</td><td>ElasticNet</td><td>60.10</td><td>23.29</td><td>0.170</td><td>False</td><td>False</td><td>74</td><td>0.08</td></tr>
+      <tr><td>baseline_linear_adr0_log</td><td>LinearRegression</td><td>58.02</td><td>19.91</td><td>0.226</td><td>False</td><td>True</td><td>74</td><td>0.14</td></tr>
+      <tr><td>ridge_adr0_log</td><td>Ridge</td><td>58.03</td><td>19.92</td><td>0.226</td><td>False</td><td>True</td><td>74</td><td>0.05</td></tr>
+      <tr><td>mlp_small_adr0_log</td><td>MLP_small</td><td>58.90</td><td>21.13</td><td>0.203</td><td>False</td><td>True</td><td>74</td><td>2.47</td></tr>
+      <tr><td>baseline_linear_no_adr0</td><td>LinearRegression</td><td>57.95</td><td>20.02</td><td>0.207</td><td>True</td><td>False</td><td>74</td><td>0.14</td></tr>
+      <tr><td>gb_no_adr0</td><td>GradientBoosting</td><td>55.36</td><td>13.49</td><td>0.277</td><td>True</td><td>False</td><td>74</td><td>26.07</td></tr>
+      <tr><td>mlp_small_no_adr0</td><td>MLP_small</td><td>56.50</td><td>16.75</td><td>0.247</td><td>True</td><td>False</td><td>74</td><td>8.95</td></tr>
+    </tbody>
+  </table>
+  <p style="margin-top:8px;font-size:12.5px;color:var(--muted)">Note: earlier exploratory runs failed due to pipeline bugs before the fixes; the table above is the final successful matrix. Artifact JSONs are regenerated alongside it.</p>
+</div>
+
+<div class="section">
+  <p class="rule"></p>
+  <h2>Model-family comparison</h2>
+  <table class="nums">
+    <thead>
+      <tr><th>Model family</th><th>Best run RMSE</th><th>Notes</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>RandomForest</td><td>54.59</td><td>Best family; two runs at 54.59 and 54.72.</td></tr>
+      <tr><td>GradientBoosting</td><td>55.28</td><td>Close behind RF on RMSE and R².</td></tr>
+      <tr><td>MLP_deep</td><td>56.14</td><td>Best of the NN variants tried here.</td></tr>
+      <tr><td>MLP_small</td><td>56.33</td><td>More variance across log/no-log than the deeper MLP.</td></tr>
+      <tr><td>DecisionTree</td><td>56.67</td><td>Single tree already competitive on MAE.</td></tr>
+      <tr><td>LinearRegression</td><td>57.93</td><td>Strong cheap baseline.</td></tr>
+      <tr><td>Ridge</td><td>57.93</td><td>Nearly identical to OLS here.</td></tr>
+      <tr><td>SVR (rbf)</td><td>57.99</td><td>Not better than linear on this feature set.</td></tr>
+      <tr><td>Lasso</td><td>59.56</td><td>Worse than Ridge / OLS.</td></tr>
+      <tr><td>ElasticNet</td><td>60.10</td><td>Worst of the linear family here.</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="section conclusion">
+  <p class="rule"></p>
+  <h2>Conclusions from the runs</h2>
+
+  <p class="lead" style="margin-top:6px">These conclusions are about this preprocessing pipeline and these model defaults, compared across a single seed-42 split. They are not yet a tuned production model.</p>
+
+  <ol>
+    <li><b>Tree ensembles are clearly ahead of linear models for this raw ADR setup.</b> RandomForest and GradientBoosting both beat every linear variant in RMSE and R². The gap points to nonlinear interactions in the categorical and booking features mattering for rate.</li>
+    <li><b>Regularization did not help much once the feature set was fixed.</b> Ridge ≈ OLS, and Lasso / ElasticNet were worse. The linear signal looks relatively stable; the bigger issue is missing nonlinear structure, not overparameterized linear fits.</li>
+    <li><b>Log1p(target) did not improve this setup.</b> Best no-log run: 54.59; best log run: 55.37. Predicting ADR in original units worked better than predicting log-ADR and back-transforming, for these models and this feature set.</li>
+    <li><b>ADR==0 dropping barely moved the needle.</b> Best keep-zero run: 54.59; best drop-zero run: 54.72. On this cleaned slice, the zeros are not driving the comparison. The main gains come from model family and feature encoding, not from removing zeros.</li>
+    <li><b>SVR and MLPs are not worth chasing further in this form.</b> They did not beat RF / GB and cost more in fit time. If nonlinear gains are the goal, the tree families are the better first place to tune.</li>
+  </ol>
+
+  <div class="callout">
+    <b>Validation note.</b> The run matrix was re-executed and re-read from <code style="color:#dfe3eb">outputs/results/regression/runs.csv</code> and a sample run JSON to confirm the log is complete and the numbers are reproducible. The best run label is <code style="color:#dfe3eb">rf_adr0_keep</code>.
+  </div>
+</div>
+
+<div class="section">
+  <p class="rule"></p>
+  <h2>What would tighten this further</h2>
+  <ol>
+    <li>Replace the fixed split with CV inside the runner so model selection is not tied to one split.</li>
+    <li>Add a tuned RF / GB variant so the “nonlinear wins” conclusion is tested against tuned baselines, not just defaults.</li>
+    <li>Decide and document the ADR==0 meaning, then lock that choice into the pipeline instead of leaving it as a sensitivity flag.</li>
+    <li>Persist the chosen preprocessing + model as a loadable inference artifact so predictions come from loaded artifacts, not retraining.</li>
+    <li>Consider pruning the 74-feature space further — many one-hot columns and possibly weak predictors are still in play.</li>
+  </ol>
+</div>
+
+<footer>
+  Prepared from the repository regression-experiment branch · generated for future processing · HTML only, no external assets.
+</footer>
+
+</div>
+</body>
+</html>

@@ -26,3 +26,14 @@ def test_cli_validates_synthetic_h2_csv(tmp_path, monkeypatch, capsys) -> None:
 
     assert result == 0
     assert "Schema validation passed" in capsys.readouterr().out
+
+
+def test_cli_regression_subcommand_is_registered(tmp_path, monkeypatch, capsys) -> None:
+    monkeypatch.setattr("sys.argv", ["hotel-booking", "regression", "--help"])
+
+    try:
+        main()
+    except SystemExit as exc:
+        assert exc.code == 0
+    out = capsys.readouterr().out
+    assert "Run ADR regression experiments" in out or "regression" in out
