@@ -37,6 +37,17 @@ from hotel_booking.leakage.checker import ManifestFitter
 
 SCORING = "neg_root_mean_squared_error"
 
+# Feature-intake pipeline parameters — tuned jointly with model hyper-parameters.
+# These are addressed as ``prep__`` and ``select__`` keys in the pipeline.
+PREPROCESS_PARAMS = {
+    "prep__num__imputer__strategy": ["median", "mean"],
+    "prep__cat__imputer__strategy": ["constant", "most_frequent"],
+    "prep__cat__imputer__fill_value": ["0", "missing"],
+    "prep__cat__onehot__min_frequency": [10, 30, None],
+    "prep__num__scaler__with_mean": [True, False],
+    "select__k": [10, 20, "all"],
+}
+
 
 @dataclass(frozen=True)
 class ModelSpec:
@@ -54,34 +65,37 @@ def regressors(seed: int) -> dict[str, ModelSpec]:
     return {
         "LinearRegression": ModelSpec(
             "LinearRegression", lambda: LinearRegression(),
-            {"model__fit_intercept": [True, False]}, n_iter=2, cv=3,
-            note="trivial grid (baseline-only model per plan)",
+            {**PREPROCESS_PARAMS, "model__fit_intercept": [True, False]}, n_iter=6, cv=3,
+            note="baseline-only model per plan",
         ),
         "Ridge": ModelSpec(
             "Ridge", lambda: Ridge(),
-            {"model__alpha": loguniform(1e-3, 100)}, n_iter=20, cv=5,
+            {**PREPROCESS_PARAMS, "model__alpha": loguniform(1e-3, 100)}, n_iter=20, cv=5,
         ),
         "Lasso": ModelSpec(
             "Lasso", lambda: Lasso(max_iter=100000, tol=1e-4),
-            {"model__alpha": loguniform(1e-4, 10)}, n_iter=20, cv=5,
+            {**PREPROCESS_PARAMS, "model__alpha": loguniform(1e-4, 10)}, n_iter=20, cv=5,
         ),
         "ElasticNet": ModelSpec(
             "ElasticNet", lambda: ElasticNet(max_iter=100000, tol=1e-4),
-            {"model__alpha": loguniform(1e-4, 1),
+            {**PREPROCESS_PARAMS,
+             "model__alpha": loguniform(1e-4, 1),
              "model__l1_ratio": uniform(0.05, 0.95)},  # 0.05..1.0
             n_iter=20, cv=5,
         ),
         "DecisionTree": ModelSpec(
             "DecisionTree", lambda: DecisionTreeRegressor(random_state=seed),
-            {"model__max_depth": [4, 6, 8, 10, 12, None],
+            {**PREPROCESS_PARAMS,
+             "model__max_depth": [4, 6, 8, 10, 12, None],
              "model__min_samples_leaf": [1, 2, 5, 10, 20],
              "model__min_impurity_decrease": [0.0, 1e-4, 1e-3, 5e-3]},
-            n_iter=30, cv=3,
+            n_iter=12, cv=3,
         ),
         "RandomForest": ModelSpec(
             "RandomForest",
-        lambda: RandomForestRegressor(n_estimators=200, n_jobs=-1, random_state=seed),
-            {"model__n_estimators": [100, 200, 400],
+            lambda: RandomForestRegressor(n_estimators=200, n_jobs=-1, random_state=seed),
+            {**PREPROCESS_PARAMS,
+             "model__n_estimators": [100, 200, 400],
              "model__max_depth": [12, 20, None],
              "model__max_features": ["sqrt", 0.3, 0.5],
              "model__min_samples_leaf": [1, 2, 5]},
@@ -89,7 +103,8 @@ def regressors(seed: int) -> dict[str, ModelSpec]:
         ),
         "HistGradientBoosting": ModelSpec(
             "HistGradientBoosting", lambda: HistGradientBoostingRegressor(random_state=seed),
-            {"model__max_iter": [200, 400, 600],
+            {**PREPROCESS_PARAMS,
+             "model__max_iter": [200, 400, 600],
              "model__learning_rate": [0.03, 0.06, 0.1],
              "model__max_leaf_nodes": [31, 63],
              "model__l2_regularization": [0.0, 0.1]},
@@ -97,15 +112,17 @@ def regressors(seed: int) -> dict[str, ModelSpec]:
         ),
         "GradientBoosting": ModelSpec(
             "GradientBoosting",
-        lambda: GradientBoostingRegressor(n_estimators=250, random_state=seed),
-            {"model__learning_rate": [0.03, 0.05, 0.08],
+            lambda: GradientBoostingRegressor(n_estimators=250, random_state=seed),
+            {**PREPROCESS_PARAMS,
+             "model__learning_rate": [0.03, 0.05, 0.08],
              "model__max_depth": [2, 3],
              "model__subsample": [0.7, 1.0]},
             n_iter=4, cv=3,
         ),
         "SVR_RBF": ModelSpec(
             "SVR_RBF", lambda: SVR(kernel="rbf"),
-            {"model__C": loguniform(0.1, 100),
+            {**PREPROCESS_PARAMS,
+             "model__C": loguniform(0.1, 100),
              "model__epsilon": [0.05, 0.1, 0.2, 0.3],
              "model__gamma": ["scale", 0.001, 0.01]},
             n_iter=10, cv=3, subsample=8000,
@@ -113,20 +130,25 @@ def regressors(seed: int) -> dict[str, ModelSpec]:
         ),
         "MLP_small": ModelSpec(
             "MLP_small",
-        lambda: MLPRegressor(
-            hidden_layer_sizes=(64, 32), max_iter=200, early_stopping=True, random_state=seed
-        ),
-            {"model__hidden_layer_sizes": [(48, 24), (64, 32), (96, 48)],
+            lambda: MLPRegressor(
+                hidden_layer_sizes=(64, 32), max_iter=200, early_stopping=True, random_state=seed
+            ),
+            {**PREPROCESS_PARAMS,
+             "model__hidden_layer_sizes": [(48, 24), (64, 32), (96, 48)],
              "model__alpha": loguniform(1e-5, 1e-2),
              "model__learning_rate_init": loguniform(1e-4, 5e-3)},
             n_iter=6, cv=3, subsample=15000,
         ),
         "MLP_deep": ModelSpec(
             "MLP_deep",
-        lambda: MLPRegressor(
-            hidden_layer_sizes=(128, 64, 32), max_iter=200, early_stopping=True, random_state=seed
-        ),
-            {"model__hidden_layer_sizes": [(96, 48, 24), (128, 64, 32)],
+            lambda: MLPRegressor(
+                hidden_layer_sizes=(128, 64, 32),
+                max_iter=200,
+                early_stopping=True,
+                random_state=seed,
+            ),
+            {**PREPROCESS_PARAMS,
+             "model__hidden_layer_sizes": [(96, 48, 24), (128, 64, 32)],
              "model__alpha": loguniform(1e-5, 1e-2),
              "model__learning_rate_init": loguniform(1e-4, 3e-3)},
             n_iter=6, cv=3, subsample=15000,
@@ -135,7 +157,14 @@ def regressors(seed: int) -> dict[str, ModelSpec]:
 
 
 def build_full_pipeline(spec: ModelSpec, variant: str) -> Any:
-    """Leakage-checked pipeline: manifest → preprocessing → estimator."""
+    """Leakage-checked pipeline: manifest → preprocessing → feature selection → estimator.
+
+    The ``prep`` step exposes tunable feature-intake parameters
+    (imputer strategy, one-hot min_frequency, scaler centering) and the
+    ``select`` step exposes ``select__k`` for feature-count tuning. All are
+    addressable as pipeline parameters via ``RandomizedSearchCV``.
+    """
+    from sklearn.feature_selection import SelectKBest, f_regression
     from sklearn.pipeline import Pipeline
 
     from hotel_booking.regression.pipeline import build_preprocessor
@@ -144,6 +173,7 @@ def build_full_pipeline(spec: ModelSpec, variant: str) -> Any:
         [
             ("manifest", ManifestFitter()),
             ("prep", build_preprocessor(variant)),
+            ("select", SelectKBest(score_func=f_regression, k="all")),
             ("model", spec.make_estimator()),
         ]
     )
@@ -190,9 +220,13 @@ def tune_model(
     clf.fit(X_use, y_use)
     elapsed = time.perf_counter() - t0
 
-    best_params = {
-        k.removeprefix("model__"): v for k, v in clf.best_params_.items()
-    }
+    best_params = {}
+    for k, v in clf.best_params_.items():
+        for prefix in ("model__", "prep__", "select__"):
+            if k.startswith(prefix):
+                k = k.removeprefix(prefix)
+                break
+        best_params[k] = v
     return {
         "best_estimator": clf.best_estimator_ if return_estimator else None,
         "best_params": best_params,

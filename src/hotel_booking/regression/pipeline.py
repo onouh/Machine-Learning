@@ -291,8 +291,21 @@ def clean_for_regression(
     return out, log
 
 
-def build_preprocessor(variant: str = "after") -> ColumnTransformer:
-    """Learned transforms — fit on the training split / CV folds only."""
+def build_preprocessor(
+    variant: str = "after",
+    *,
+    numeric_imputer: str = "median",
+    categorical_imputer: str = "constant",
+    categorical_fill_value: str = "0",
+    onehot_min_frequency: int | None = 30,
+    scale_numeric: bool = True,
+) -> ColumnTransformer:
+    """Learned transforms — fit on the training split / CV folds only.
+
+    All parameters are exposed as ``prep__``-prefixed search keys so the
+    feature-intake pipeline (imputation, encoding, scaling) can be tuned
+    jointly with the model hyper-parameters.
+    """
     numeric_cols = BOOKING_TIME_NUMERIC + (
         PRE_TRUNCATION_NUMERIC_EXTRA if variant == "before" else []
     )
@@ -300,23 +313,22 @@ def build_preprocessor(variant: str = "after") -> ColumnTransformer:
         PRE_TRUNCATION_CATEGORICAL_EXTRA if variant == "before" else []
     )
 
-    numeric = Pipeline(
-        [
-            ("imputer", SimpleImputer(strategy="median")),
-            ("scaler", StandardScaler()),
-        ]
-    )
-    categorical = Pipeline(
-        [
-            ("imputer", SimpleImputer(strategy="constant", fill_value="0")),
-            # min_frequency folds rare training-fold categories into one
-            # 'infrequent_sklearn' bucket per feature — learned per fold.
-            (
-                "onehot",
-                OneHotEncoder(handle_unknown="ignore", min_frequency=30, sparse_output=False),
-            ),
-        ]
-    )
+    numeric_steps: list[tuple[str, Any]] = [
+        ("imputer", SimpleImputer(strategy=numeric_imputer))
+    ]
+    if scale_numeric:
+        numeric_steps.append(("scaler", StandardScaler()))
+    numeric = Pipeline(numeric_steps)
+
+    cat_steps: list[tuple[str, Any]] = [
+        ("imputer", SimpleImputer(strategy=categorical_imputer, fill_value=categorical_fill_value))
+    ]
+    onehot_kwargs: dict[str, Any] = {"handle_unknown": "ignore", "sparse_output": False}
+    if onehot_min_frequency is not None:
+        onehot_kwargs["min_frequency"] = onehot_min_frequency
+    cat_steps.append(("onehot", OneHotEncoder(**onehot_kwargs)))
+    categorical = Pipeline(cat_steps)
+
     return ColumnTransformer(
         [
             ("num", numeric, numeric_cols),
