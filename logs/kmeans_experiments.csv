@@ -33,3 +33,8 @@ timestamp,k,train_size,val_size,predict_size,train_inertia,val_inertia,train_ine
 2026-11-04 21:47:13,5,37135,10610,5305,119746.0,33916.09,3.2246,3.1966,0.1722,0.1763,1.5945,"{0: 17558, 1: 7932, 2: 3750, 3: 7806, 4: 16004}",no previous-booking flags in training; ADR excluded
 2026-11-04 21:50:53,3,37135,10610,5305,136429.7,39445.23,3.6739,3.7177,0.1923,0.1921,1.7551,"{0: 18753, 1: 12396, 2: 21901}",no previous-booking flags in training; ADR excluded; log1p on skewed features
 2026-11-04 21:50:58,3,37135,10610,5305,136429.7,39445.23,3.6739,3.7177,0.1923,0.1921,1.7551,"{0: 18753, 1: 12396, 2: 21901}",no previous-booking flags in training; ADR excluded; log1p on skewed features
+2026-11-04 21:52:59,4,37135,10610,5305,121888.89,35071.68,3.2823,3.3055,0.1888,0.192,1.6353,"{0: 10840, 1: 17416, 2: 16152, 3: 8642}",no previous-booking flags in training; ADR excluded; log1p on skewed features
+2026-11-04 21:53:19,5,37135,10610,5305,114206.45,32836.96,3.0754,3.0949,0.1747,0.178,1.6617,"{0: 7721, 1: 13462, 2: 8394, 3: 15746, 4: 7727}",no previous-booking flags in training; ADR excluded; log1p on skewed features
+2026-11-04 21:53:38,6,37135,10610,5305,108246.62,31020.88,2.9149,2.9237,0.1498,0.1592,1.7641,"{0: 7373, 1: 8385, 2: 9420, 3: 8079, 4: 13262, 5: 6531}",no previous-booking flags in training; ADR excluded; log1p on skewed features
+2026-11-04 21:53:52,2,37135,10610,5305,161487.93,46624.14,4.3487,4.3944,0.1953,0.1927,1.9101,"{0: 17555, 1: 35495}",no previous-booking flags in training; ADR excluded; log1p on skewed features
+2026-11-04 21:54:20,3,37135,10610,5305,136429.7,39445.23,3.6739,3.7177,0.1923,0.1921,1.7551,"{0: 18753, 1: 12396, 2: 21901}",no previous-booking flags in training; ADR excluded; log1p on skewed features

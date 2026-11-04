@@ -23,7 +23,7 @@ MODEL_PATH = ROOT / "kmeans_model.pkl"
 LOG_PATH = ROOT / "logs" / "kmeans_experiments.csv"
 
 # Experiment settings: change these for each attempt
-N_CLUSTERS =  3  # python train_kmeans.py 4
+N_CLUSTERS =  3 # python train_kmeans.py 4
 USE_ADR = False  # True = add ADR, clipped at the 99th percentile of the training set
 USE_LOG = True   # True = apply log1p to the skewed numeric features
 NOTES = (
