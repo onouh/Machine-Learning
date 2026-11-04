@@ -1,5 +1,6 @@
 import pandas as pd
 import joblib
+from datetime import datetime
 from pathlib import Path
 
 from sklearn.compose import ColumnTransformer
@@ -7,7 +8,7 @@ from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 from sklearn.cluster import KMeans
-from sklearn.metrics import silhouette_score
+from sklearn.metrics import silhouette_score, davies_bouldin_score
 from sklearn.model_selection import train_test_split
 
 
@@ -17,6 +18,11 @@ DATA_PATH = ROOT / "data" / "processed" / "H2_cleaned.csv"
 OUTPUT_PATH = ROOT / "data" / "processed" / "H2_clustered.csv"
 PREDICTION_PATH = ROOT / "data" / "processed" / "H2_prediction_10pct.csv"
 MODEL_PATH = ROOT / "kmeans_model.pkl"
+LOG_PATH = ROOT / "logs" / "kmeans_experiments.csv"
+
+# Experiment settings: change these for each attempt
+N_CLUSTERS = 6
+NOTES = ""  # your observation for this attempt, e.g. "capped ADR outliers"
 
 
 # 1. Load dataset
@@ -36,7 +42,6 @@ numeric_features = [
     "Adults",
     "Children",
     "Babies",
-    "ADR",
     "PreviousCancellations",
     "PreviousBookingsNotCanceled",
     "TotalOfSpecialRequests"
@@ -111,7 +116,7 @@ preprocessor = ColumnTransformer(transformers=[
 model = Pipeline(steps=[
     ("preprocessor", preprocessor),
     ("kmeans", KMeans(
-        n_clusters=3,
+        n_clusters=N_CLUSTERS,
         random_state=42,
         n_init=10
     ))
@@ -149,6 +154,9 @@ val_inertia = -kmeans.score(X_val_processed)
 print("Validation Inertia:", val_inertia)
 
 # Silhouette scores
+train_silhouette = None
+val_silhouette = None
+
 if 2 <= len(set(train_labels)) < len(train_labels):
     train_silhouette = silhouette_score(
         X_train_processed,
@@ -169,6 +177,17 @@ if 2 <= len(set(val_labels)) < len(val_labels):
 else:
     print("Validation Silhouette Score cannot be calculated.")
 
+# Davies-Bouldin (lower is better); needs dense input
+X_val_dense = (
+    X_val_processed.toarray()
+    if hasattr(X_val_processed, "toarray")
+    else X_val_processed
+)
+val_db = None
+if 2 <= len(set(val_labels)) < len(val_labels):
+    val_db = davies_bouldin_score(X_val_dense, val_labels)
+    print("Validation Davies-Bouldin Score:", val_db)
+
 
 # 9. Predict clusters for the complete dataset
 
@@ -188,5 +207,37 @@ print("\nTrained model saved at:", MODEL_PATH)
 
 df.to_csv(OUTPUT_PATH, index=False)
 print("Clustered dataset saved at:", OUTPUT_PATH)
+
+# 11. Log this attempt (append only, never overwrites previous attempts)
+
+cluster_sizes = df["Cluster"].value_counts().sort_index().to_dict()
+
+log_row = {
+    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    "k": N_CLUSTERS,
+    "train_size": len(X_train),
+    "val_size": len(X_val),
+    "predict_size": len(df_predict),
+    "train_inertia": round(kmeans.inertia_, 2),
+    "val_inertia": round(val_inertia, 2),
+    "train_inertia_per_sample": round(kmeans.inertia_ / len(X_train), 4),
+    "val_inertia_per_sample": round(val_inertia / len(X_val), 4),
+    "train_silhouette": None if train_silhouette is None else round(train_silhouette, 4),
+    "val_silhouette": None if val_silhouette is None else round(val_silhouette, 4),
+    "val_davies_bouldin": None if val_db is None else round(val_db, 4),
+    "cluster_sizes": str(cluster_sizes),
+    "notes": NOTES,
+}
+
+LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+pd.DataFrame([log_row]).to_csv(
+    LOG_PATH,
+    mode="a",
+    header=not LOG_PATH.exists(),
+    index=False
+)
+
+print("Attempt logged at:", LOG_PATH)
 
 print("\nK-Means training process completed successfully!")

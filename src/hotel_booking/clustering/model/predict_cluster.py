@@ -23,7 +23,6 @@ numeric_features = [
     "Adults",
     "Children",
     "Babies",
-    "ADR",
     "PreviousCancellations",
     "PreviousBookingsNotCanceled",
     "TotalOfSpecialRequests"
