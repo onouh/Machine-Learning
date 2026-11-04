@@ -23,11 +23,11 @@ MODEL_PATH = ROOT / "kmeans_model.pkl"
 LOG_PATH = ROOT / "logs" / "kmeans_experiments.csv"
 
 # Experiment settings: change these for each attempt
-N_CLUSTERS = 4  # python train_kmeans.py 4
-USE_ADR = False  # True = add ADR, clipped at the 99th percentile of the training set
-USE_LOG = True   # True = apply log1p to the skewed numeric features
-CAT_MODE = "none"       # "all" = 4 categoricals, "reduced" = MarketSegment + DepositType, "none" = numeric only
-MIN_CAT_FREQ = 0.05    # e.g. 0.05 groups categories under 5% into one "infrequent" column
+N_CLUSTERS = int(sys.argv[1]) if len(sys.argv) > 1 else 4  # python train_kmeans.py 4
+USE_ADR = False 
+USE_LOG = True  
+CAT_MODE = "none"      
+MIN_CAT_FREQ = None    
 NOTES = (
     "no previous-booking flags in training; "
     + ("ADR clipped p99 included; " if USE_ADR else "ADR excluded; ")
@@ -46,8 +46,6 @@ print("Dataset shape:", df.shape)
 
 # 2. Select features
 
-# Feature engineering: row-wise only (no statistics learned from the data),
-# so doing it before the split does not cause leakage
 raw_required = [
     "StaysInWeekendNights", "StaysInWeekNights", "Adults", "Children",
     "Babies", "PreviousCancellations", "PreviousBookingsNotCanceled"
@@ -61,8 +59,7 @@ df["TotalGuests"] = df["Adults"] + df["Children"].fillna(0) + df["Babies"]
 df["HasPreviousCancellation"] = (df["PreviousCancellations"] > 0).astype(int)
 df["HasPreviousBookings"] = (df["PreviousBookingsNotCanceled"] > 0).astype(int)
 
-# The previous-booking flags are NOT training features: after scaling, a rare
-# 0/1 flag dominates the distances. They are only used for profiling below.
+
 numeric_features = [
     "LeadTime",
     "TotalNights",
@@ -97,23 +94,20 @@ if missing_columns:
 
 
 # 3. Split dataset: 70% training, 20% validation, 10% prediction
-
-# Step 1: take 10% out as the prediction set (never used in training/validation)
 df_rest, df_predict = train_test_split(
     df,
     test_size=0.10,
     random_state=42
 )
 
-# Step 2: split the remaining 90% into 70% / 20% of the original data
-# 0.20 / 0.90 = 0.2222...
+
 df_train, df_val = train_test_split(
     df_rest,
     test_size=0.20 / 0.90,
     random_state=42
 )
 
-# Clip ADR using a cap learned from the training set only (no leakage)
+
 if USE_ADR:
     adr_cap = df_train["ADR"].quantile(0.99)
     for part in (df, df_train, df_val, df_predict):
@@ -128,7 +122,7 @@ print("Training data  (70%):", X_train.shape)
 print("Validation data (20%):", X_val.shape)
 print("Prediction data (10%):", df_predict.shape)
 
-# Save the 10% prediction set to use in other files
+
 df_predict.to_csv(PREDICTION_PATH, index=False)
 print("Prediction set saved at:", PREDICTION_PATH)
 
@@ -196,11 +190,9 @@ print("Training Inertia:", kmeans.inertia_)
 X_train_processed = fitted_preprocessor.transform(X_train)
 X_val_processed = fitted_preprocessor.transform(X_val)
 
-# Validation inertia (sum of squared distances to nearest centroid)
 val_inertia = -kmeans.score(X_val_processed)
 print("Validation Inertia:", val_inertia)
 
-# Silhouette scores
 train_silhouette = None
 val_silhouette = None
 
@@ -224,7 +216,7 @@ if 2 <= len(set(val_labels)) < len(val_labels):
 else:
     print("Validation Silhouette Score cannot be calculated.")
 
-# Davies-Bouldin (lower is better); needs dense input
+
 X_val_dense = (
     X_val_processed.toarray()
     if hasattr(X_val_processed, "toarray")
@@ -236,7 +228,6 @@ if 2 <= len(set(val_labels)) < len(val_labels):
     print("Validation Davies-Bouldin Score:", val_db)
 
 
-# 9. Predict clusters for the complete dataset
 
 df["Cluster"] = model.predict(df[all_features])
 
@@ -246,7 +237,7 @@ print(df["Cluster"].value_counts().sort_index())
 print("\nCluster Profiles:")
 print(df.groupby("Cluster")[numeric_features].mean().round(2))
 
-# Profile-only columns (not used in training unless USE_ADR is True)
+
 profile_only = [
     c for c in ["ADR", "HasPreviousCancellation", "HasPreviousBookings"]
     if c in df.columns
@@ -254,9 +245,14 @@ profile_only = [
 print("\nProfile-only columns per cluster:")
 print(df.groupby("Cluster")[profile_only].mean().round(2))
 
-# Cluster share: check that no cluster is tiny (an inflated silhouette warning)
+
 print("\nCluster share (%):")
 print((df["Cluster"].value_counts(normalize=True).sort_index() * 100).round(2))
+
+for col in ["Meal", "MarketSegment", "CustomerType", "DepositType", "ReservedRoomType"]:
+    if col in df.columns:
+        print(f"\n{col} by cluster (row %):")
+        print((pd.crosstab(df["Cluster"], df[col], normalize="index") * 100).round(1))
 
 
 # 10. Save model and outputs
