@@ -23,13 +23,16 @@ MODEL_PATH = ROOT / "kmeans_model.pkl"
 LOG_PATH = ROOT / "logs" / "kmeans_experiments.csv"
 
 # Experiment settings: change these for each attempt
-N_CLUSTERS =  3 # python train_kmeans.py 4
+N_CLUSTERS = 4  # python train_kmeans.py 4
 USE_ADR = False  # True = add ADR, clipped at the 99th percentile of the training set
 USE_LOG = True   # True = apply log1p to the skewed numeric features
+CAT_MODE = "none"       # "all" = 4 categoricals, "reduced" = MarketSegment + DepositType, "none" = numeric only
+MIN_CAT_FREQ = 0.05    # e.g. 0.05 groups categories under 5% into one "infrequent" column
 NOTES = (
     "no previous-booking flags in training; "
     + ("ADR clipped p99 included; " if USE_ADR else "ADR excluded; ")
-    + ("log1p on skewed features" if USE_LOG else "no log transform")
+    + ("log1p on skewed features; " if USE_LOG else "no log transform; ")
+    + f"cat_mode={CAT_MODE}; min_cat_freq={MIN_CAT_FREQ}"
 )
 
 
@@ -76,12 +79,14 @@ log_candidates = ["LeadTime", "TotalNights", "TotalOfSpecialRequests", "ADR_clip
 log_features = [c for c in numeric_features if USE_LOG and c in log_candidates]
 linear_features = [c for c in numeric_features if c not in log_features]
 
-categorical_features = [
-    "Meal",
-    "MarketSegment",
-    "DepositType",
-    "ReservedRoomType"
-]
+if CAT_MODE == "none":
+    categorical_features = []
+elif CAT_MODE == "reduced":
+    categorical_features = ["MarketSegment", "DepositType"]
+elif CAT_MODE == "all":
+    categorical_features = ["Meal", "MarketSegment", "DepositType", "ReservedRoomType"]
+else:
+    raise ValueError("CAT_MODE must be 'all', 'reduced' or 'none'")
 
 all_features = numeric_features + categorical_features
 
@@ -143,7 +148,7 @@ log_pipeline = Pipeline(steps=[
 
 categorical_pipeline = Pipeline(steps=[
     ("imputer", SimpleImputer(strategy="most_frequent")),
-    ("encoder", OneHotEncoder(handle_unknown="ignore"))
+    ("encoder", OneHotEncoder(handle_unknown="ignore", min_frequency=MIN_CAT_FREQ))
 ])
 
 preprocessor = ColumnTransformer(transformers=[
