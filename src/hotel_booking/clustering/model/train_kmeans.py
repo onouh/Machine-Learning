@@ -1,10 +1,12 @@
+import sys
+import numpy as np
 import pandas as pd
 import joblib
 from datetime import datetime
 from pathlib import Path
 
 from sklearn.compose import ColumnTransformer
-from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.preprocessing import StandardScaler, OneHotEncoder, FunctionTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 from sklearn.cluster import KMeans
@@ -21,8 +23,14 @@ MODEL_PATH = ROOT / "kmeans_model.pkl"
 LOG_PATH = ROOT / "logs" / "kmeans_experiments.csv"
 
 # Experiment settings: change these for each attempt
-N_CLUSTERS = 2
-NOTES = "removed ADR, CustomerType; merged guests/nights; previous bookings to flags"
+N_CLUSTERS =  3  # python train_kmeans.py 4
+USE_ADR = False  # True = add ADR, clipped at the 99th percentile of the training set
+USE_LOG = True   # True = apply log1p to the skewed numeric features
+NOTES = (
+    "no previous-booking flags in training; "
+    + ("ADR clipped p99 included; " if USE_ADR else "ADR excluded; ")
+    + ("log1p on skewed features" if USE_LOG else "no log transform")
+)
 
 
 # 1. Load dataset
@@ -50,15 +58,23 @@ df["TotalGuests"] = df["Adults"] + df["Children"].fillna(0) + df["Babies"]
 df["HasPreviousCancellation"] = (df["PreviousCancellations"] > 0).astype(int)
 df["HasPreviousBookings"] = (df["PreviousBookingsNotCanceled"] > 0).astype(int)
 
-# ADR removed from training; it is still in df, so it appears in the profile below
+# The previous-booking flags are NOT training features: after scaling, a rare
+# 0/1 flag dominates the distances. They are only used for profiling below.
 numeric_features = [
     "LeadTime",
     "TotalNights",
     "TotalGuests",
-    "HasPreviousCancellation",
-    "HasPreviousBookings",
     "TotalOfSpecialRequests"
 ]
+
+if USE_ADR:
+    df["ADR_clipped"] = df["ADR"]  # clipped after the split (see section 3)
+    numeric_features.append("ADR_clipped")
+
+# Skewed, non-negative features that get log1p before scaling
+log_candidates = ["LeadTime", "TotalNights", "TotalOfSpecialRequests", "ADR_clipped"]
+log_features = [c for c in numeric_features if USE_LOG and c in log_candidates]
+linear_features = [c for c in numeric_features if c not in log_features]
 
 categorical_features = [
     "Meal",
@@ -92,6 +108,13 @@ df_train, df_val = train_test_split(
     random_state=42
 )
 
+# Clip ADR using a cap learned from the training set only (no leakage)
+if USE_ADR:
+    adr_cap = df_train["ADR"].quantile(0.99)
+    for part in (df, df_train, df_val, df_predict):
+        part["ADR_clipped"] = part["ADR"].clip(lower=0, upper=adr_cap)
+    print("ADR cap (99th percentile of training):", adr_cap)
+
 X_train = df_train[all_features].copy()
 X_val = df_val[all_features].copy()
 
@@ -107,8 +130,14 @@ print("Prediction set saved at:", PREDICTION_PATH)
 
 # 4. Preprocessing pipelines
 
-numeric_pipeline = Pipeline(steps=[
+linear_pipeline = Pipeline(steps=[
     ("imputer", SimpleImputer(strategy="median")),
+    ("scaler", StandardScaler())
+])
+
+log_pipeline = Pipeline(steps=[
+    ("imputer", SimpleImputer(strategy="median")),
+    ("log", FunctionTransformer(np.log1p, feature_names_out="one-to-one")),
     ("scaler", StandardScaler())
 ])
 
@@ -118,7 +147,8 @@ categorical_pipeline = Pipeline(steps=[
 ])
 
 preprocessor = ColumnTransformer(transformers=[
-    ("num", numeric_pipeline, numeric_features),
+    ("num_linear", linear_pipeline, linear_features),
+    ("num_log", log_pipeline, log_features),
     ("cat", categorical_pipeline, categorical_features)
 ])
 
@@ -211,10 +241,17 @@ print(df["Cluster"].value_counts().sort_index())
 print("\nCluster Profiles:")
 print(df.groupby("Cluster")[numeric_features].mean().round(2))
 
-# ADR is not a training feature, but check how it differs per cluster
-if "ADR" in df.columns:
-    print("\nADR per cluster (not used in training):")
-    print(df.groupby("Cluster")[["ADR"]].mean().round(2))
+# Profile-only columns (not used in training unless USE_ADR is True)
+profile_only = [
+    c for c in ["ADR", "HasPreviousCancellation", "HasPreviousBookings"]
+    if c in df.columns
+]
+print("\nProfile-only columns per cluster:")
+print(df.groupby("Cluster")[profile_only].mean().round(2))
+
+# Cluster share: check that no cluster is tiny (an inflated silhouette warning)
+print("\nCluster share (%):")
+print((df["Cluster"].value_counts(normalize=True).sort_index() * 100).round(2))
 
 
 # 10. Save model and outputs
