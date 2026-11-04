@@ -21,8 +21,8 @@ MODEL_PATH = ROOT / "kmeans_model.pkl"
 LOG_PATH = ROOT / "logs" / "kmeans_experiments.csv"
 
 # Experiment settings: change these for each attempt
-N_CLUSTERS = 6
-NOTES = ""  # your observation for this attempt, e.g. "capped ADR outliers"
+N_CLUSTERS = 2
+NOTES = "removed ADR, CustomerType; merged guests/nights; previous bookings to flags"
 
 
 # 1. Load dataset
@@ -35,22 +35,34 @@ print("Dataset shape:", df.shape)
 
 # 2. Select features
 
+# Feature engineering: row-wise only (no statistics learned from the data),
+# so doing it before the split does not cause leakage
+raw_required = [
+    "StaysInWeekendNights", "StaysInWeekNights", "Adults", "Children",
+    "Babies", "PreviousCancellations", "PreviousBookingsNotCanceled"
+]
+missing_raw = [col for col in raw_required if col not in df.columns]
+if missing_raw:
+    raise ValueError(f"Missing columns: {missing_raw}")
+
+df["TotalNights"] = df["StaysInWeekendNights"] + df["StaysInWeekNights"]
+df["TotalGuests"] = df["Adults"] + df["Children"].fillna(0) + df["Babies"]
+df["HasPreviousCancellation"] = (df["PreviousCancellations"] > 0).astype(int)
+df["HasPreviousBookings"] = (df["PreviousBookingsNotCanceled"] > 0).astype(int)
+
+# ADR removed from training; it is still in df, so it appears in the profile below
 numeric_features = [
     "LeadTime",
-    "StaysInWeekendNights",
-    "StaysInWeekNights",
-    "Adults",
-    "Children",
-    "Babies",
-    "PreviousCancellations",
-    "PreviousBookingsNotCanceled",
+    "TotalNights",
+    "TotalGuests",
+    "HasPreviousCancellation",
+    "HasPreviousBookings",
     "TotalOfSpecialRequests"
 ]
 
 categorical_features = [
     "Meal",
     "MarketSegment",
-    "CustomerType",
     "DepositType",
     "ReservedRoomType"
 ]
@@ -198,6 +210,11 @@ print(df["Cluster"].value_counts().sort_index())
 
 print("\nCluster Profiles:")
 print(df.groupby("Cluster")[numeric_features].mean().round(2))
+
+# ADR is not a training feature, but check how it differs per cluster
+if "ADR" in df.columns:
+    print("\nADR per cluster (not used in training):")
+    print(df.groupby("Cluster")[["ADR"]].mean().round(2))
 
 
 # 10. Save model and outputs
