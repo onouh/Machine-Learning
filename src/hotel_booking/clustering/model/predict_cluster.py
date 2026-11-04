@@ -2,6 +2,8 @@ import pandas as pd
 import joblib
 from pathlib import Path
 
+from sklearn.metrics import silhouette_score, davies_bouldin_score
+
 
 ROOT = Path(__file__).resolve().parents[4]
 
@@ -67,7 +69,39 @@ print("\nCluster Profiles:")
 print(new_data.groupby("Cluster")[numeric_features].mean().round(2))
 
 
-# 5. Save results
+# 5. Evaluate on the prediction set (same scores as train_kmeans.py)
+
+kmeans = model.named_steps["kmeans"]
+X_new_processed = model.named_steps["preprocessor"].transform(X_new)
+
+labels = new_data["Cluster"]
+
+print("\nModel Evaluation (prediction set)")
+
+pred_inertia = -kmeans.score(X_new_processed)
+print("Prediction Inertia:", pred_inertia)
+print("Prediction Inertia per sample:", pred_inertia / len(X_new))
+
+if 2 <= labels.nunique() < len(labels):
+    pred_silhouette = silhouette_score(
+        X_new_processed,
+        labels,
+        sample_size=min(3000, len(labels)),
+        random_state=42
+    )
+    print("Prediction Silhouette Score:", pred_silhouette)
+
+    X_new_dense = (
+        X_new_processed.toarray()
+        if hasattr(X_new_processed, "toarray")
+        else X_new_processed
+    )
+    print("Prediction Davies-Bouldin Score:", davies_bouldin_score(X_new_dense, labels))
+else:
+    print("Silhouette and Davies-Bouldin cannot be calculated.")
+
+
+# 6. Save results
 
 OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
 new_data.to_csv(OUTPUT_PATH, index=False)
