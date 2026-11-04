@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ADR Regression — Technical Documentation</title>
+    <style>
+        body { font-family: system-ui, sans-serif; line-height: 1.6; margin: 2rem; max-width: 800px; }
+        h1, h2, h3 { color: #333; }
+        code { background: #f4f4f4; padding: 2px 4px; border-radius: 3px; }
+        pre { background: #f4f4f4; padding: 1rem; border-radius: 5px; overflow-x: auto; }
+        table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f4f4f4; }
+        .variant-after { border-left: 4px solid #3b82f6; }
+        .variant-before { border-left: 4px solid #8b5cf6; }
+        .metric { font-family: monospace; }
+    </style>
+</head>
+<body>
+    <h1>ADR Regression — Technical Documentation</h1>
+
+    <h2>Overview</h2>
+    <p>This module implements ADR (Average Daily Rate) regression experiments for hotel booking data. The prediction point is <strong>booking creation</strong>: only fields knowable at booking time may be used as predictors.</p>
+
+    <p><strong>Prediction point:</strong> booking creation</p>
+    <p>Only fields knowable at booking creation may be predictors. Post-booking fields are dropped with a recorded reason (see <code>DROP_WITH_REASON</code>).</p>
+
+    <h2>Variants</h2>
+    <ul>
+        <li><strong>variant="after"</strong>: truncation applied — booking-time-only features.</li>
+        <li><strong>variant="before"</strong>: pre-truncation feature set (post-booking fields and <code>IsCanceled</code> included) used to quantify how the removed data skewed ADR.</li>
+    </ul>
+    <p>The shared cleaning (invalid rows, ADR==5400 removal) is identical across variants so the comparison is controlled.</p>
+
+    <h2>Data Cleaning Pipeline</h2>
+    <h3>Steps</h3>
+    <ol>
+        <li><strong>Text normalization</strong> at the load boundary — strip whitespace, normalize NULL/NA tokens</li>
+        <li><strong>Numeric coercion</strong> — convert columns to numeric, raise on errors</li>
+        <li><strong>Arrival date reconstruction</strong> — compute <code>arrival_days</code>, <code>arrival_month</code>, <code>arrival_dow</code> from date parts</li>
+        <li><strong>Invalid row removal</strong> — apply rule-based filtering:
+            <ul>
+                <li><code>adr_eq_5400_single_extreme</code>: ADR == 5400 (single extreme, not a business rate)</li>
+                <li><code>total_guests_le_0</code>: total guests <= 0</li>
+                <li><code>total_nights_le_0</code>: total nights <= 0</li>
+                <li><code>adults_eq_0</code>: Adults == 0 (EDA outlier)</li>
+                <li><code>babies_in_9_10</code>: Babies in [9, 10] (EDA outlier)</li>
+            </ul>
+        </li>
+        <li><strong>ADR==0 handling</strong> — kept by default (complimentary rows); dropped only when <code>drop_adr_zero=True</code></li>
+        <li><strong>Dedup</strong> — exact row duplicates removed after all dtype casts</li>
+        <li><strong>Deterministic categorical normalization</strong> — fill missing categoricals with sentinel values</li>
+    </ol>
+
+    <h3>Cleaning Log</h3>
+    <p>The <code>clean_for_regression()</code> function returns <code>(frame, log)</code> where log contains:</p>
+    <ul>
+        <li><code>prediction_point</code>: "booking creation"</li>
+        <li><code>variant</code>: "before" or "after"</li>
+        <li><code>drop_adr_zero</code>: boolean flag</li>
+        <li><code>rows_after_invalid_rules</code>: rows remaining after invalid-rule removal</li>
+        <li><code>adr_zero_rows</code>: count of ADR==0 rows</li>
+        <li><code>adr_zero_rule</code>: "kept (complimentary stays)" or "dropped (sensitivity run)"</li>
+        <li><code>invalid_row_rules</code>: per-rule counts and reasons</li>
+        <li><code>rows_after_cleaning</code>: final row count after dedup</li>
+        <li><code>exact_duplicates_removed</code>: number of duplicate rows removed</li>
+        <li><code>variant_note</code>: description of the variant feature set</li>
+    </ul>
+
+    <h3>Feature Columns</h3>
+
+    <h4>Variant "after" (booking-time-only):</h4>
+    <dl>
+        <dt>Numeric</dt>
+        <dd>LeadTime, arrival_days, arrival_month, arrival_dow, StaysInWeekendNights, StaysInWeekNights, Adults, Children, Babies, IsRepeatedGuest, PreviousCancellations, PreviousBookingsNotCanceled, RequiredCarParkingSpaces, TotalOfSpecialRequests</dd>
+        <dt>Categorical</dt>
+        <dd>Meal, Country, MarketSegment, DistributionChannel, ReservedRoomType, DepositType, CustomerType, Agent</dd>
+    </dl>
+
+    <h4>Variant "before" (pre-truncation):</h4>
+    <p>All "after" features <em>plus</em>:</p>
+    <ul>
+        <li><strong>Extra numeric:</strong> IsCanceled, BookingChanges, DaysInWaitingList</li>
+        <li><strong>Extra categorical:</strong> AssignedRoomType, Company</li>
+    </ul>
+
+    <h2>Preprocessor</h2>
+    <p><code>build_preprocessor(variant)</code> creates a <code>ColumnTransformer</code> with:</p>
+    <ul>
+        <li><strong>Numeric pipeline:</strong> SimpleImputer (median) + Optional StandardScaler</li>
+        <li><strong>Categorical pipeline:</strong> SimpleImputer (constant + fill_value) + OneHotEncoder (<code>handle_unknown="ignore"</code>, <code>sparse_output=False</code>, optional <code>min_frequency=30</code>)</li>
+    </ul>
+    <p>The preprocessor is always fit on training folds only — never on test data.</p>
+    <p><strong>Leakage enforcement:</strong></p>
+    <ol>
+        <li>Explicit allowlist — model never sees post-booking columns</li>
+        <li><code>assert_no_leakage()</code> re-checks after fitting</li>
+        <li>All learned transforms (imputation, encoding, scaling) live in an sklearn pipeline fitted only on training folds</li>
+    </ol>
+
+    <h2>Model Pipeline</h2>
+    <ol>
+        <li>Loads raw data via <code>load_raw()</code></li>
+        <li>Cleans with <code>clean_for_regression(variant=..., drop_adr_zero=...)</code></li>
+        <li>Splits train/test once (stratified on ADR==0, fixed seed)</li>
+        <li>Builds manifest + preprocessing + estimator pipeline</li>
+        <li>Optionally tunes inside CV on the train split only</li>
+        <li>Evaluates on the held-out test set in original ADR units (predictions clipped at >= 0)</li>
+        <li>Runs the four-path leakage checker — refuses to log a run that fails</li>
+        <li>Appends the run to <code>runs.csv</code> and writes a per-run JSON</li>
+    </ol>
+
+    <h2>Metrics Logged Per Run</h2>
+    <ul>
+        <li>rmse, mae, r2</li>
+        <li>best params (when tuned)</li>
+        <li>search space as params</li>
+        <li>best cv rmse</li>
+        <li>search n_iter, cv folds</li>
+        <li>search subsample used</li>
+        <li>search seconds, refit seconds</li>
+        <li>fit seconds, total seconds</li>
+        <li>feature names</li>
+        <li>test ADR mean, median, max</li>
+        <li>leak check result</li>
+    </ul>
+
+    <h2>LeakageChecker</h2>
+    <p><code>assert_no_leakage()</code> validates four paths:</p>
+    <ol>
+        <li><strong>Row disjointness</strong> — train and test fingerprints must not overlap</li>
+        <li><strong>Column allowlist</strong> — forbidden features must not appear in the feature matrix</li>
+        <li><strong>Manifest fit purity</strong> — the <code>ManifestFitter</code> must prove test rows never entered any fit</li>
+        <li><strong>Fitted pipeline inspection</strong> — deliberately leaking by refitting on train+test must raise <code>LeakageError</code></li>
+    </ol>
+
+    <h2>LeakageError</h2>
+    <p>Raised when:</p>
+    <ul>
+        <li>A run fails the leakage checker</li>
+        <li>Forbidden columns reach the feature matrix</li>
+        <li>The manifest catches test rows in fit when leakage is present</li>
+    </ul>
+
+    <h2>References</h2>
+    <ul>
+        <li><code>docs/evidence/adr_analysis_evidence.md</code>: measured evidence for every cleaning decision</li>
+        <li><code>.venv/bin/python -m hotel_booking.data.adr_evidence</code>: regenerate the evidence doc</li>
+        <li><code>DROP_WITH_REASON</code>: dict mapping column -> reason for dropping</li>
+    </ul>
+
+    <h2>Running Experiments</h2>
+    <pre><code># Full matrix (baseline + tuned, both variants)
+.venv/bin/python -m hotel_booking.regression.run
+
+# CLI regression command
+hotel-booking regression --variant after --models RandomForest --seed 42
+
+# With sensitivity run (drop ADR==0 rows)
+hotel-booking regression --variant after --drop-adr-zero --seed 42
+</code></pre>
+</body>
+</html>
