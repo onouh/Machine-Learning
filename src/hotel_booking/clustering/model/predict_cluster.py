@@ -4,11 +4,11 @@ from pathlib import Path
 
 
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[4]
 
 MODEL_PATH = ROOT / "kmeans_model.pkl"
 
-NEW_DATA_PATH = ROOT / "data" / "new_bookings.csv"
+NEW_DATA_PATH = ROOT / "data" / "processed" / "H2_cleaned.csv"
 
 OUTPUT_PATH = ROOT / "data" / "new_bookings_clustered.csv"
 

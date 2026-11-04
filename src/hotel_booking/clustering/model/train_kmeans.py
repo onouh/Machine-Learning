@@ -12,9 +12,9 @@ from sklearn.metrics import silhouette_score
 
 
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[4]
 
-DATA_PATH = ROOT / "data" / "processed" / "H2_deduplicated.csv"
+DATA_PATH = ROOT / "data" / "processed" / "H2_cleaned.csv"
 OUTPUT_PATH = ROOT / "data" / "processed" / "H2_clustered.csv"
 MODEL_PATH = ROOT / "kmeans_model.pkl"
 
