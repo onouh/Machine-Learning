@@ -22,7 +22,6 @@ numeric_features = [
     "StaysInWeekNights",
     "Adults",
     "Children",
-    "Babies",
     "PreviousCancellations",
     "PreviousBookingsNotCanceled",
     "TotalOfSpecialRequests"
