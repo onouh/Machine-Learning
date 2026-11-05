@@ -42,3 +42,5 @@ outputs/figures/*
 !outputs/figures/.gitkeep
 outputs/results/*
 !outputs/results/.gitkeep
+kmeans_model.pkl
+data/new_bookings_clustered.csv
