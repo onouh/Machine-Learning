@@ -1,0 +1,66 @@
+name: ADR Regression Experiments
+
+on:
+  workflow_dispatch:
+    inputs:
+      variant:
+        description: 'Regression variant (after or before)'
+        default: 'after'
+        required: false
+      seed:
+        description: 'Random seed for reproducibility'
+        default: '123'
+        required: false
+      drop_adr_zero:
+        description: 'Drop ADR==0 rows (sensitivity run)'
+        default: 'false'
+        required: false
+
+jobs:
+  regress:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install project dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Run regression experiment
+        run: |
+          VARIANT="${{ github.event.inputs.variant || 'after' }}"
+          SEED="${{ github.event.inputs.seed || '123' }}"
+          DROP_ZERO="${{ github.event.inputs.drop_adr_zero || 'false' }}"
+
+          echo "Running ADR regression with variant=$VARIANT, seed=$SEED, drop_adr_zero=$DROP_ZERO"
+
+          # Run the regression experiment
+          python -m hotel_booking.regression.run \
+            --variant "$VARIANT" \
+            --seed "$SEED" \
+            --drop-adr-zero "$DROP_ZERO" \
+            --output outputs/regression_${VARIANT}_seed${SEED}_zero${DROP_ZERO}.json
+
+          # Also run RandomForest if variant is after
+          if [ "$VARIANT" = "after" ]; then
+            echo "Running RandomForest experiment..."
+            python -m hotel_booking.regression.run \
+              --variant "$VARIANT" \
+              --seed "$SEED" \
+              --drop-adr-zero "$DROP_ZERO" \
+              --models RandomForest \
+              --output outputs/rf_${VARIANT}_seed${SEED}_zero${DROP_ZERO}.json
+          fi
+
+      - name: Upload regression results
+        uses: actions/upload-artifact@v4
+        with:
+          name: regression-results
+          path: outputs/
+          retention-days: 30
