@@ -1,0 +1,269 @@
+import numpy as np
+import pandas as pd
+import pytest
+
+from hotel_booking.preprocessing.regression import (
+    FEATURES,
+    FORBIDDEN,
+    NUMERIC_FEATURES,
+    CATEGORICAL_FEATURES,
+    TARGET,
+    add_arrival_features,
+    validate_features,
+    build_preprocessor,
+    get_xy,
+    prepare_features,
+)
+
+def test_feature_lists_are_consistent():
+    assert len(FEATURES) == len(set(FEATURES)) == 19
+    assert not set(FEATURES) & set(FORBIDDEN)
+    assert TARGET not in FEATURES
+    assert not set(NUMERIC_FEATURES) & set(CATEGORICAL_FEATURES)
+
+
+def test_forbidden_column_in_x_is_rejected():
+    X, _ = get_xy(make_frame())
+    X["AssignedRoomType"] = "A"
+    with pytest.raises(ValueError, match="AssignedRoomType"):
+        prepare_features(X)
+    with pytest.raises(ValueError, match="AssignedRoomType"):
+        build_preprocessor().fit_transform(X)
+
+
+def test_target_or_unapproved_column_in_x_is_rejected():
+    X, y = get_xy(make_frame())
+    with pytest.raises(ValueError, match="ADR"):
+        validate_features(X.assign(ADR=y))
+    with pytest.raises(ValueError, match="date"):
+        validate_features(X.assign(date="2016-01-01"))
+
+
+def test_missing_feature_in_x_is_rejected():
+    X, _ = get_xy(make_frame())
+    with pytest.raises(ValueError, match="LeadTime"):
+        prepare_features(X.drop(columns=["LeadTime"]))
+
+
+def test_column_order_is_fixed():
+    X, _ = get_xy(make_frame())
+    assert list(prepare_features(X[X.columns[::-1]]).columns) == FEATURES
+
+
+def test_duplicate_columns_and_bad_target_are_rejected():
+    df = make_frame()
+    with pytest.raises(ValueError, match="duplicate"):
+        get_xy(pd.concat([df, df[["ADR"]]], axis=1))
+    df["ADR"] = [100.0, None, 120.0]
+    with pytest.raises(ValueError, match="ADR"):
+        get_xy(df)
+
+
+def make_frame() -> pd.DataFrame:
+    """Small stand-in for H2_cleaned.csv, including the forbidden columns."""
+    return pd.DataFrame(
+        {
+            "date": ["2015-07-01", "2016-03-05", "2017-08-31"],
+            "LeadTime": [10, 200, 35],
+            "StaysInWeekendNights": [0, 2, 1],
+            "StaysInWeekNights": [1, 3, 2],
+            "Adults": [2, 2, 1],
+            "Children": [0, 1, 0],
+            "Babies": [0, 0, 0],
+            "PreviousCancellations": [0, 0, 1],
+            "PreviousBookingsNotCanceled": [0, 0, 2],
+            "Meal": ["BB", "HB", "BB"],
+            "Country": ["PRT", "FRA", "GBR"],
+            "MarketSegment": ["Online TA", "Direct", "Corporate"],
+            "DistributionChannel": ["TA/TO", "Direct", "Corporate"],
+            "IsRepeatedGuest": [0, 0, 1],
+            "ReservedRoomType": ["A", "D", "A"],
+            "DepositType": ["No Deposit"] * 3,
+            "Agent": [9, 0, 14],
+            "CustomerType": ["Transient"] * 3,
+            "ADR": [100.0, 80.5, 120.0],
+            # columns the audit forbids; they exist in the cleaned file
+            "IsCanceled": [0, 1, 0],
+            "AssignedRoomType": ["A", "D", "B"],
+            "BookingChanges": [0, 1, 0],
+            "DaysInWaitingList": [0, 0, 0],
+            "RequiredCarParkingSpaces": [0, 0, 1],
+            "TotalOfSpecialRequests": [0, 1, 2],
+            "ReservationStatus": ["Check-Out", "Canceled", "Check-Out"],
+            "ReservationStatusDate": ["2015-07-02", "2016-03-01", "2017-09-01"],
+        }
+    )
+
+
+def test_selects_only_approved_features():
+    X, _ = get_xy(make_frame())
+    assert list(X.columns) == FEATURES
+    assert X.shape[1] == 19
+
+
+def test_forbidden_columns_are_excluded():
+    X, _ = get_xy(make_frame())
+    assert not set(FORBIDDEN) & set(X.columns)
+    assert not set(FORBIDDEN) & set(FEATURES)
+    assert "date" not in X.columns
+
+
+def test_target_is_separate():
+    df = make_frame()
+    X, y = get_xy(df)
+    assert y.name == TARGET
+    assert y.tolist() == df[TARGET].tolist()
+    assert TARGET not in X.columns
+
+
+def test_year_and_month_extracted():
+    X, _ = get_xy(make_frame())
+    assert X["ArrivalDateYear"].tolist() == [2015, 2016, 2017]
+    assert X["ArrivalDateMonth"].tolist() == ["July", "March", "August"]
+
+
+def test_missing_required_column_raises():
+    with pytest.raises(ValueError, match="LeadTime"):
+        get_xy(make_frame().drop(columns=["LeadTime"]))
+    with pytest.raises(ValueError, match="date"):
+        get_xy(make_frame().drop(columns=["date"]))
+
+
+def test_numeric_text_is_converted_and_bad_values_fail():
+    X, _ = get_xy(make_frame())
+    X["LeadTime"] = X["LeadTime"].astype(str)
+    assert pd.api.types.is_numeric_dtype(prepare_features(X)["LeadTime"])
+
+    X["LeadTime"] = ["10", "abc", "35"]
+    with pytest.raises(ValueError):
+        prepare_features(X)
+
+def make_train() -> pd.DataFrame:
+    """15 rows of approved features (the 3 fake rows repeated 5 times)."""
+    X, _ = get_xy(make_frame())
+    return pd.concat([X] * 5, ignore_index=True)
+
+
+def dense(matrix):
+    """The encoder may return a sparse or dense matrix; make it a numpy array."""
+    return matrix.toarray() if hasattr(matrix, "toarray") else np.asarray(matrix)
+
+
+def columns_starting_with(names, prefix):
+    return [i for i, name in enumerate(names) if name.startswith(prefix)]
+
+
+def test_categorical_values_are_normalized():
+    X, _ = get_xy(make_frame())
+    X["Country"] = [" PRT ", "NA", None]  # "NA" is Namibia, not missing
+    X["MarketSegment"] = ["NULL", "", "Direct"]
+    out = prepare_features(X)
+    assert out["Country"].tolist() == ["PRT", "NA", "Unknown"]
+    assert out["MarketSegment"].tolist() == ["Unknown", "Unknown", "Direct"]
+    assert out["IsRepeatedGuest"].tolist() == ["0", "0", "1"]
+
+
+def test_missing_numeric_uses_training_median():
+    train = make_train()  # LeadTime values are 10, 200, 35, so the median is 35
+    pre = build_preprocessor(min_frequency=2).fit(train)
+    new = train.iloc[:1].copy()
+    new["LeadTime"] = np.nan
+    out = dense(pre.transform(new))
+    names = list(pre.get_feature_names_out())
+    assert not np.isnan(out).any()
+    assert out[0, names.index("num__LeadTime")] == 35
+
+
+def test_agent_ids_are_normalized():
+    X, _ = get_xy(make_frame())
+    X["Agent"] = pd.Series([9, 9.0, "9"], dtype=object)
+    assert prepare_features(X)["Agent"].tolist() == ["9", "9", "9"]
+
+    X["Agent"] = pd.Series([0, "0", None], dtype=object)
+    assert prepare_features(X)["Agent"].tolist() == ["No agent"] * 3
+
+
+def test_unseen_categories_do_not_crash():
+    train = make_train()
+    pre = build_preprocessor(min_frequency=2).fit(train)
+    new = train.iloc[:1].copy()
+    new["Country"] = "ZZZ"
+    new["ReservedRoomType"] = "L"
+    out = dense(pre.transform(new))
+    names = list(pre.get_feature_names_out())
+    # nothing was folded in this tiny table, so unseen values become all zeros
+    assert out[:, columns_starting_with(names, "cat_fold__Country_")].sum() == 0
+    assert out[:, columns_starting_with(names, "cat_small__ReservedRoomType_")].sum() == 0
+
+
+def test_output_schema_is_consistent():
+    train = make_train()
+    pre = build_preprocessor(min_frequency=2)
+    A = pre.fit_transform(train)
+    B = pre.transform(train.iloc[:1])
+    names = list(pre.get_feature_names_out())
+    assert A.shape[1] == B.shape[1] == len(names)
+    assert len(set(names)) == len(names)
+
+
+def test_transform_does_not_learn_from_new_data():
+    train = make_train()
+    pre = build_preprocessor(scale_numeric=True, min_frequency=2).fit(train)
+    encode = pre.named_steps["encode"]
+    imputer = encode.named_transformers_["num"].named_steps["imputer"]
+    scaler = encode.named_transformers_["num"].named_steps["scaler"]
+    country_encoder = encode.named_transformers_["cat_fold"]
+
+    before = (imputer.statistics_.copy(), scaler.mean_.copy(), scaler.scale_.copy())
+    assert np.allclose(before[0], train[NUMERIC_FEATURES].median().to_numpy())
+
+    other = train.iloc[:3].copy()
+    other["LeadTime"] = [1000, 2000, 3000]
+    other["Country"] = ["NEW1", "NEW2", "NEW3"]
+    pre.transform(other)
+
+    assert np.array_equal(imputer.statistics_, before[0])
+    assert np.array_equal(scaler.mean_, before[1])
+    assert np.array_equal(scaler.scale_, before[2])
+    assert "NEW1" not in list(country_encoder.categories_[0])
+
+
+def test_only_country_and_agent_are_folded():
+    train = make_train()
+    last = train.index[-1]
+    train.loc[last, "Meal"] = "SC"      # rare value in a column that must NOT fold
+    train.loc[last, "Country"] = "XXX"  # rare value in a column that must fold
+    pre = build_preprocessor(min_frequency=3).fit(train)
+    names = list(pre.get_feature_names_out())
+    assert "cat_fold__Country_infrequent_sklearn" in names
+    assert "cat_small__Meal_SC" in names
+    assert not any("Meal_infrequent" in n for n in names)
+def test_date_must_use_year_month_day_format():
+    df = make_frame()
+    df["date"] = ["01/07/2015", "2016-03-05", "2017-08-31"]
+    with pytest.raises(ValueError):
+        add_arrival_features(df)
+
+
+def test_missing_date_is_rejected():
+    df = make_frame()
+    df["date"] = ["2015-07-01", None, "2017-08-31"]
+    with pytest.raises(ValueError, match="missing"):
+        add_arrival_features(df)
+
+
+def test_datetime_date_column_is_accepted():
+    df = make_frame()
+    df["date"] = pd.to_datetime(df["date"])
+    out = add_arrival_features(df)
+    assert out["ArrivalDateYear"].tolist() == [2015, 2016, 2017]
+    assert out["ArrivalDateMonth"].tolist() == ["July", "March", "August"]
+
+
+def test_existing_derived_columns_are_not_overwritten():
+    df = make_frame()
+    df["ArrivalDateYear"] = 1999
+    with pytest.raises(ValueError, match="ArrivalDateYear"):
+        add_arrival_features(df)
+
+
